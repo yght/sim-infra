@@ -1,0 +1,16 @@
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+*.tfvars
+!example.tfvars
+crash.log
+dist/
+node_modules/
+coverage/
+.env
+*.log
+.DS_Store
+.idea/
+.vscode/
+.claude/
