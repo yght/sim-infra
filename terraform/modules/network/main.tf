@@ -147,3 +147,35 @@ resource "aws_route_table_association" "isolated" {
   subnet_id      = aws_subnet.isolated[count.index].id
   route_table_id = aws_route_table.isolated.id
 }
+
+/**
+ * Gateway endpoints for S3 and DynamoDB.
+ *
+ * Free, and they keep the usage files off the NAT. Before these went in, the
+ * nightly ingest was most of our NAT bill.
+ */
+resource "aws_vpc_endpoint" "s3" {
+  vpc_id            = aws_vpc.main.id
+  service_name      = "com.amazonaws.${var.region}.s3"
+  vpc_endpoint_type = "Gateway"
+
+  route_table_ids = concat(
+    aws_route_table.private[*].id,
+    [aws_route_table.isolated.id]
+  )
+
+  tags = merge(local.tags, { Name = "${var.name}-s3" })
+}
+
+resource "aws_vpc_endpoint" "dynamodb" {
+  vpc_id            = aws_vpc.main.id
+  service_name      = "com.amazonaws.${var.region}.dynamodb"
+  vpc_endpoint_type = "Gateway"
+
+  route_table_ids = concat(
+    aws_route_table.private[*].id,
+    [aws_route_table.isolated.id]
+  )
+
+  tags = merge(local.tags, { Name = "${var.name}-dynamodb" })
+}
