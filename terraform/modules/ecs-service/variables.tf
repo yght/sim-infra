@@ -29,6 +29,16 @@ variable "desired_count" {
   default = 2
 }
 
+variable "min_capacity" {
+  type    = number
+  default = 2
+}
+
+variable "max_capacity" {
+  type    = number
+  default = 10
+}
+
 variable "environment" {
   description = "Plain environment variables. Never secrets - these are readable via the API."
   type        = map(string)

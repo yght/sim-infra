@@ -190,5 +190,40 @@ resource "aws_ecs_service" "service" {
     }
   }
 
+  # The desired count is managed by autoscaling once the service exists.
+  # Without this, every apply drags it back to the initial value.
+  lifecycle {
+    ignore_changes = [desired_count]
+  }
+
   tags = local.tags
+}
+
+resource "aws_appautoscaling_target" "service" {
+  max_capacity       = var.max_capacity
+  min_capacity       = var.min_capacity
+  resource_id        = "service/${var.cluster_name}/${aws_ecs_service.service.name}"
+  scalable_dimension = "ecs:service:DesiredCount"
+  service_namespace  = "ecs"
+}
+
+resource "aws_appautoscaling_policy" "cpu" {
+  name               = "${var.service_name}-cpu"
+  policy_type        = "TargetTrackingScaling"
+  resource_id        = aws_appautoscaling_target.service.resource_id
+  scalable_dimension = aws_appautoscaling_target.service.scalable_dimension
+  service_namespace  = aws_appautoscaling_target.service.service_namespace
+
+  target_tracking_scaling_policy_configuration {
+    predefined_metric_specification {
+      predefined_metric_type = "ECSServiceAverageCPUUtilization"
+    }
+
+    target_value = 65
+
+    # Scale out quickly, scale in slowly. A carrier batch arriving is a step
+    # change, and flapping back down costs more than the extra task.
+    scale_out_cooldown = 60
+    scale_in_cooldown  = 300
+  }
 }
