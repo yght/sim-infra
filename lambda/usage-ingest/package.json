@@ -1,0 +1,17 @@
+{
+  "name": "usage-ingest",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Parses nightly carrier usage files from S3 into rated usage",
+  "main": "src/handler.js",
+  "scripts": {
+    "test": "jest"
+  },
+  "devDependencies": {
+    "jest": "^25.1.0"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "testMatch": ["<rootDir>/test/**/*.test.js"]
+  }
+}
