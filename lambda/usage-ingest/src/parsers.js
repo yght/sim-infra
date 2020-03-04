@@ -4,7 +4,8 @@
  * Carrier usage file parsers.
  *
  * Every night each carrier drops a usage file in S3 and we turn it into rated
- * usage. Bell first; Vodafone and AT&T land in the same shape.
+ * usage. All three formats are different, all three are wrong in their own
+ * way, and none of them are documented accurately.
  *
  * The rules that matter, learned the hard way:
  *
@@ -21,6 +22,7 @@
  */
 
 var KB = 1024;
+var MB = 1024 * 1024;
 
 function ParseIssue(line, lineNumber, reason) {
   this.line = line;
@@ -122,6 +124,118 @@ function bellTimestamp(raw, offsetMinutes) {
   return date.toISOString();
 }
 
+/**
+ * Vodafone: CSV with a header row, ISO timestamps in UTC, volume in bytes.
+ * Fields are quoted inconsistently, so the splitter has to cope with both.
+ */
+function parseVodafone(text) {
+  var records = [];
+  var issues = [];
+  var lines = text.split('\n');
+  var header = null;
+
+  for (var i = 0; i < lines.length; i++) {
+    var line = lines[i].replace(/\r$/, '');
+
+    if (line.trim().length === 0) {
+      continue;
+    }
+
+    var fields = splitCsv(line);
+
+    if (header === null) {
+      header = fields.map(function (f) { return f.trim().toLowerCase(); });
+      continue;
+    }
+
+    if (fields.length !== header.length) {
+      issues.push(new ParseIssue(line, i + 1, 'FIELD_COUNT'));
+      continue;
+    }
+
+    var row = {};
+    for (var f = 0; f < header.length; f++) {
+      row[header[f]] = fields[f];
+    }
+
+    var when = Date.parse(row['timestamp']);
+    if (!isFinite(when)) {
+      issues.push(new ParseIssue(line, i + 1, 'BAD_TIMESTAMP'));
+      continue;
+    }
+
+    var bytes = Number(row['bytes']);
+    if (!isFinite(bytes) || bytes < 0) {
+      issues.push(new ParseIssue(line, i + 1, 'BAD_NUMBER'));
+      continue;
+    }
+
+    records.push({
+      recordId: row['record_id'],
+      carrier: 'vodafone',
+      iccid: row['iccid'],
+      msisdn: row['msisdn'] || null,
+      occurredAt: new Date(when).toISOString(),
+      durationSeconds: Number(row['duration_s']) || 0,
+      bytes: bytes,
+      kind: normaliseKind(row['type'])
+    });
+  }
+
+  return { records: records, issues: issues };
+}
+
+/**
+ * AT&T: newline delimited JSON, volume in megabytes as a decimal string.
+ */
+function parseAtt(text) {
+  var records = [];
+  var issues = [];
+  var lines = text.split('\n');
+
+  for (var i = 0; i < lines.length; i++) {
+    var line = lines[i].replace(/\r$/, '');
+
+    if (line.trim().length === 0) {
+      continue;
+    }
+
+    var parsed;
+    try {
+      parsed = JSON.parse(line);
+    } catch (e) {
+      issues.push(new ParseIssue(line, i + 1, 'BAD_JSON'));
+      continue;
+    }
+
+    var when = Date.parse(parsed.eventTime);
+    if (!isFinite(when)) {
+      issues.push(new ParseIssue(line, i + 1, 'BAD_TIMESTAMP'));
+      continue;
+    }
+
+    var megabytes = Number(parsed.dataVolumeMb);
+    if (!isFinite(megabytes) || megabytes < 0) {
+      issues.push(new ParseIssue(line, i + 1, 'BAD_NUMBER'));
+      continue;
+    }
+
+    records.push({
+      recordId: parsed.recordId,
+      carrier: 'att',
+      iccid: parsed.simIdentifier,
+      msisdn: parsed.phoneNumber || null,
+      occurredAt: new Date(when).toISOString(),
+      durationSeconds: Number(parsed.durationSeconds) || 0,
+      // Round rather than truncate: truncating loses a few bytes on every
+      // record and the monthly totals drift low enough to be noticed.
+      bytes: Math.round(megabytes * MB),
+      kind: normaliseKind(parsed.usageType)
+    });
+  }
+
+  return { records: records, issues: issues };
+}
 
 var KINDS = {
   DATA: 'data',
@@ -145,8 +259,48 @@ function normaliseKind(raw) {
   return KINDS[key] || 'unknown';
 }
 
+/**
+ * Minimal CSV field splitter: handles quoted fields and doubled quotes.
+ * Not a general CSV parser and does not pretend to be - it handles what
+ * Vodafone actually send.
+ */
+function splitCsv(line) {
+  var fields = [];
+  var current = '';
+  var inQuotes = false;
+
+  for (var i = 0; i < line.length; i++) {
+    var ch = line.charAt(i);
+
+    if (inQuotes) {
+      if (ch === '"') {
+        if (line.charAt(i + 1) === '"') {
+          current += '"';
+          i++;
+        } else {
+          inQuotes = false;
+        }
+      } else {
+        current += ch;
+      }
+    } else if (ch === '"') {
+      inQuotes = true;
+    } else if (ch === ',') {
+      fields.push(current);
+      current = '';
+    } else {
+      current += ch;
+    }
+  }
+
+  fields.push(current);
+  return fields;
+}
+
 var PARSERS = {
-  bell: parseBell
+  bell: parseBell,
+  vodafone: parseVodafone,
+  att: parseAtt
 };
 
 function parse(carrier, text, options) {
@@ -162,5 +316,8 @@ function parse(carrier, text, options) {
 module.exports = {
   parse: parse,
   parseBell: parseBell,
-  normaliseKind: normaliseKind
+  parseVodafone: parseVodafone,
+  parseAtt: parseAtt,
+  normaliseKind: normaliseKind,
+  splitCsv: splitCsv
 };
