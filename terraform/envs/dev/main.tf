@@ -54,6 +54,19 @@ module "network" {
   tags = local.tags
 }
 
+module "usage_pipeline" {
+  source = "../../modules/usage-pipeline"
+
+  name         = local.name
+  kms_key_arn  = aws_kms_key.data.arn
+  package_path = var.usage_ingest_package
+
+  log_retention_days   = 14
+  reserved_concurrency = 2
+
+  tags = local.tags
+}
+
 resource "aws_kms_key" "data" {
   description             = "${local.name} usage and secrets"
   deletion_window_in_days = 7
