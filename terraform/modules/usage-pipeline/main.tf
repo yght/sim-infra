@@ -175,3 +175,10 @@ resource "aws_s3_bucket_notification" "landing" {
 
   depends_on = [aws_lambda_permission.from_s3]
 }
+
+resource "aws_cloudwatch_log_group" "ingest" {
+  name              = "/aws/lambda/${aws_lambda_function.ingest.function_name}"
+  retention_in_days = var.log_retention_days
+
+  tags = local.tags
+}

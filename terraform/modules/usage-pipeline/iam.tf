@@ -25,14 +25,21 @@ resource "aws_iam_role" "ingest" {
  */
 data "aws_iam_policy_document" "ingest" {
   statement {
-    sid       = "Buckets"
-    actions   = ["s3:GetObject", "s3:PutObject"]
-    resources = ["${aws_s3_bucket.landing.arn}/*", "${aws_s3_bucket.rated.arn}/*"]
+    sid       = "ReadLandingFiles"
+    actions   = ["s3:GetObject"]
+    resources = ["${aws_s3_bucket.landing.arn}/incoming/*"]
   }
 
   statement {
-    sid       = "DedupeState"
-    actions   = ["dynamodb:*"]
+    sid       = "WriteRatedTotals"
+    actions   = ["s3:PutObject"]
+    resources = ["${aws_s3_bucket.rated.arn}/rated/*"]
+  }
+
+  statement {
+    sid     = "DedupeState"
+    actions = ["dynamodb:GetItem", "dynamodb:PutItem"]
+    # No DeleteItem and no Scan. The TTL does the deleting.
     resources = [aws_dynamodb_table.seen.arn]
   }
 
@@ -44,8 +51,8 @@ data "aws_iam_policy_document" "ingest" {
 
   statement {
     sid       = "Logs"
-    actions   = ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"]
-    resources = ["*"]
+    actions   = ["logs:CreateLogStream", "logs:PutLogEvents"]
+    resources = ["${aws_cloudwatch_log_group.ingest.arn}:*"]
   }
 
   statement {
