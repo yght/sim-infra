@@ -17,6 +17,11 @@ variable "log_retention_days" {
   default = 90
 }
 
+variable "alarm_topic_arns" {
+  type    = list(string)
+  default = []
+}
+
 variable "tags" {
   type    = map(string)
   default = {}

@@ -64,6 +64,9 @@ module "usage_pipeline" {
   log_retention_days   = 14
   reserved_concurrency = 2
 
+  # No paging out of hours for dev. The alarms still fire into Slack.
+  alarm_topic_arns = [aws_sns_topic.alarms.arn]
+
   tags = local.tags
 }
 

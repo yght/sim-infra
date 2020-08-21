@@ -182,3 +182,49 @@ resource "aws_cloudwatch_log_group" "ingest" {
 
   tags = local.tags
 }
+
+/**
+ * Anything on the dead letter queue means a file did not ingest, and a file
+ * that did not ingest is usage nobody is billed for. One message is worth
+ * waking somebody up for.
+ */
+resource "aws_cloudwatch_metric_alarm" "dlq_not_empty" {
+  alarm_name          = "${var.name}-usage-ingest-dlq"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 1
+  threshold           = 0
+  period              = 300
+  namespace           = "AWS/SQS"
+  metric_name         = "ApproximateNumberOfMessagesVisible"
+  statistic           = "Maximum"
+
+  dimensions = {
+    QueueName = aws_sqs_queue.dlq.name
+  }
+
+  alarm_description  = "A carrier usage file failed to ingest. Usage is going unbilled until it is replayed."
+  alarm_actions      = var.alarm_topic_arns
+  treat_missing_data = "notBreaching"
+
+  tags = local.tags
+}
+
+resource "aws_cloudwatch_metric_alarm" "errors" {
+  alarm_name          = "${var.name}-usage-ingest-errors"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 1
+  threshold           = 0
+  period              = 300
+  namespace           = "AWS/Lambda"
+  metric_name         = "Errors"
+  statistic           = "Sum"
+
+  dimensions = {
+    FunctionName = aws_lambda_function.ingest.function_name
+  }
+
+  alarm_actions      = var.alarm_topic_arns
+  treat_missing_data = "notBreaching"
+
+  tags = local.tags
+}
