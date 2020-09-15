@@ -209,6 +209,33 @@ resource "aws_cloudwatch_metric_alarm" "dlq_not_empty" {
   tags = local.tags
 }
 
+/**
+ * The alarm nobody thinks to write: the files stopped arriving.
+ *
+ * A carrier that silently stops uploading looks exactly like a quiet night.
+ * We noticed this the hard way after four days of no Vodafone usage.
+ */
+resource "aws_cloudwatch_metric_alarm" "no_invocations" {
+  alarm_name          = "${var.name}-usage-ingest-silent"
+  comparison_operator = "LessThanThreshold"
+  evaluation_periods  = 1
+  threshold           = 1
+  period              = 86400
+  namespace           = "AWS/Lambda"
+  metric_name         = "Invocations"
+  statistic           = "Sum"
+
+  dimensions = {
+    FunctionName = aws_lambda_function.ingest.function_name
+  }
+
+  alarm_description  = "No usage files ingested in 24 hours. A carrier has probably stopped uploading."
+  alarm_actions      = var.alarm_topic_arns
+  treat_missing_data = "breaching"
+
+  tags = local.tags
+}
+
 resource "aws_cloudwatch_metric_alarm" "errors" {
   alarm_name          = "${var.name}-usage-ingest-errors"
   comparison_operator = "GreaterThanThreshold"
