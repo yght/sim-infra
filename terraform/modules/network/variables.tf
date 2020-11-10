@@ -24,6 +24,18 @@ variable "single_nat_gateway" {
   default     = false
 }
 
+variable "enable_flow_logs" {
+  description = "Log rejected packets to S3"
+  type        = bool
+  default     = true
+}
+
+variable "flow_log_bucket_arn" {
+  description = "Bucket for VPC flow logs"
+  type        = string
+  default     = ""
+}
+
 variable "tags" {
   description = "Tags applied to everything in the module"
   type        = map(string)

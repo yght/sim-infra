@@ -179,3 +179,14 @@ resource "aws_vpc_endpoint" "dynamodb" {
 
   tags = merge(local.tags, { Name = "${var.name}-dynamodb" })
 }
+
+resource "aws_flow_log" "main" {
+  count = var.enable_flow_logs ? 1 : 0
+
+  vpc_id               = aws_vpc.main.id
+  traffic_type         = "REJECT"
+  log_destination_type = "s3"
+  log_destination      = var.flow_log_bucket_arn
+
+  tags = local.tags
+}
