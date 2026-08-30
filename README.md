@@ -1,6 +1,12 @@
 # sim-infra
 
-Terraform and Lambda for the multi-carrier SIM platform on AWS. Runs the SIM platform services.
+Terraform and Lambda for the multi-carrier SIM platform on AWS. Runs
+[sim-platform](https://github.com/yght/sim-platform).
+
+*Rebuild note: this is a cleaned-up version of infrastructure I built between
+2019 and 2021. Account numbers, bucket names, carrier SFTP details and the
+real CIDR plan are gone. The module structure and the operational decisions
+are the originals. I can walk through the live setup on a call.*
 
 ## What this runs
 
@@ -90,10 +96,20 @@ cd terraform && terraform fmt -check -recursive
 cd terraform/envs/dev && terraform init -backend=false && terraform validate
 ```
 
-State lives in S3 with a DynamoDB lock table. Both environments use the same
-modules at the same provider version.
+The Terraform validates against AWS provider 3.x, which is what it was written
+for. It won't validate against provider 4 or later — the inline `versioning`
+and `lifecycle_rule` blocks on `aws_s3_bucket` were split into separate
+resources in provider 4, and porting that is a real piece of work rather than
+a search and replace.
+
+No credentials here. No account ids, no real bucket names, and the backend
+block points at a state bucket that doesn't exist.
 
 ## What I'd change
+
+The S3 bucket resources are pinned to provider 3.x and that's a growing debt.
+The port is mechanical but wide — every bucket gains four or five satellite
+resources.
 
 Task definitions take `image` as a plain string, so a deploy is `terraform
 apply` with a new tag. That couples application deploys to infrastructure
