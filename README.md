@@ -1,12 +1,27 @@
 # sim-infra
 
-Terraform and Lambda for the multi-carrier SIM platform on AWS. Runs
+Terraform and Lambda for the multi-carrier SIM platform on AWS. Related domain sample:
 [sim-platform](https://github.com/yght/sim-platform).
 
 *Rebuild note: this is a cleaned-up version of infrastructure I built between
 2019 and 2021. Account numbers, bucket names, carrier SFTP details and the
 real CIDR plan are gone. The module structure and the operational decisions
 are the originals. I can walk through the live setup on a call.*
+
+## What I want to demonstrate
+
+I want to show how I connect cloud infrastructure decisions to service reliability, operating cost and billing correctness.
+
+- **AWS infrastructure:** reusable Terraform modules, network boundaries and environment configuration.
+- **Data processing:** normalising carrier usage formats and units before aggregation.
+- **Operations:** least-privilege access and alarms for missing activity as well as explicit failures.
+- **Customer impact:** protecting usage records and making billing discrepancies easier to investigate.
+
+**Start here:** [network module](terraform/modules/network/main.tf), [usage parsers](lambda/usage-ingest/src/parsers.js), and [ingestion handler](lambda/usage-ingest/src/handler.js).
+
+**Scope:** infrastructure and ingestion samples related to the SIM platform, with deployment-specific values removed. The public SIM repository does not include the application services required for a complete deployment.
+
+**Known correctness gap:** the handler writes each batch to the same daily totals object after deduplication. Replaying a completed file can overwrite those totals with an empty result; multiple files and concurrent processing also need safe aggregation and coordinated deduplication. This must be addressed before using the handler for billing.
 
 ## What this runs
 
