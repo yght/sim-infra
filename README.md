@@ -138,3 +138,9 @@ reading a plan, which caught most things and missed a public bucket ACL once.
 The dedupe table stores the whole key set as one DynamoDB item per
 carrier-day. That's fine at current volumes and falls over at 400KB, which is
 roughly 10,000 records in a day. It's closer than I'd like.
+
+## Engineering practices
+
+[Contribution and verification guide](CONTRIBUTING.md) · [Review template](.github/pull_request_template.md)
+
+The CI gate covers Lambda tests only. Terraform changes also require formatting, validation and an reviewed plan in an authorized environment; CI does not deploy infrastructure. The daily-total replay overwrite issue remains unresolved.

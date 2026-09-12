@@ -1,0 +1,24 @@
+name: Sample checks
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: lambda/usage-ingest/package-lock.json
+      - run: npm ci
+        working-directory: lambda/usage-ingest
+      - run: npm test -- --runInBand
+        working-directory: lambda/usage-ingest
