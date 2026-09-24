@@ -144,3 +144,19 @@ roughly 10,000 records in a day. It's closer than I'd like.
 [Contribution and verification guide](CONTRIBUTING.md) · [Review template](.github/pull_request_template.md)
 
 The CI gate covers Lambda tests only. Terraform changes also require formatting, validation and an reviewed plan in an authorized environment; CI does not deploy infrastructure. The daily-total replay overwrite issue remains unresolved.
+
+## S3 event key handling
+
+The ingest handler decodes the notification key once before validating its
+layout and fetching the object. Tests cover spaces, literal plus signs, Unicode
+and percent escapes that must not be decoded twice. Malformed URL encoding
+follows the existing invalid-key policy: log and skip that record, then continue
+the batch. Storage failures still propagate for retry.
+
+Run `cd lambda/usage-ingest && npm ci && npm test -- --runInBand`.
+These handler tests use mocked AWS clients; they do not verify an AWS deployment.
+
+Known billing limitation: output totals and deduplication markers are still
+separate writes. Replays and concurrent files can overwrite daily totals.
+This key-handling fix does not resolve that persistence design; production use
+requires an atomic ledger/aggregation design.

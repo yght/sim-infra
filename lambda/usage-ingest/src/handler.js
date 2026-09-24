@@ -32,8 +32,22 @@ var MAX_BAD_LINE_RATIO = 0.02;
 
 var KEY_PATTERN = /^incoming\/([a-z]+)\/(\d{4}-\d{2}-\d{2})\/[^/]+$/;
 
+function decodeEventKey(key) {
+  try {
+    return decodeURIComponent(key.replace(/\+/g, ' '));
+  } catch (error) {
+    if (error instanceof URIError) return null;
+    throw error;
+  }
+}
+
 function parseKey(key) {
-  var match = KEY_PATTERN.exec(decodeURIComponent(key.replace(/\+/g, ' ')));
+  var decoded = decodeEventKey(key);
+  return decoded === null ? null : parseDecodedKey(decoded);
+}
+
+function parseDecodedKey(key) {
+  var match = KEY_PATTERN.exec(key);
 
   if (!match) {
     return null;
@@ -48,14 +62,14 @@ exports.handler = async function (event) {
   for (var i = 0; i < event.Records.length; i++) {
     var s3Event = event.Records[i].s3;
     var bucket = s3Event.bucket.name;
-    var key = s3Event.object.key;
-
-    var meta = parseKey(key);
+    var rawKey = s3Event.object.key;
+    var key = decodeEventKey(rawKey);
+    var meta = key === null ? null : parseDecodedKey(key);
 
     if (!meta) {
       // An unexpected key shape is a deployment mistake, not a data problem.
       // Failing here would retry forever, so log and move on.
-      console.error(JSON.stringify({ level: 'error', msg: 'unrecognised key', key: key }));
+      console.error(JSON.stringify({ level: 'error', msg: 'unrecognised key', key: rawKey }));
       continue;
     }
 
